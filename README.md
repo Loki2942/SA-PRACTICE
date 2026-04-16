@@ -1,1 +1,1 @@
-Можете использовать гугл-диск: https://drive.google.com/drive/folders/1XfHNrzeI5YgOFeFci9hykQxH6sYBvcyU?usp=sharing
+Задание по системной аналитике в рамках производственной практики. Дополнительные файлы лежат на диске: https://disk.yandex.ru/d/cpNMSpm8KFguwQ 
