@@ -1,0 +1,1796 @@
+openapi: 3.0.3
+info:
+  title: Aviaticket Booking API
+  description: API для поиска, бронирования и покупки авиабилетов.
+  version: 1.0.0
+
+servers:
+  - url: https://api.travel.ru/v1
+    description: Production server
+
+tags:
+  - name: auth
+    description: Регистрация и аутентификация
+  - name: flights
+    description: Поиск и информация о рейсах
+  - name: bookings
+    description: Управление бронированиями
+  - name: services
+    description: Дополнительные услуги
+  - name: payments
+    description: Платежи и выписка билетов
+  - name: refunds
+    description: Возврат билетов
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Регистрация нового пользователя
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: user@example.com
+              password: SecurePass123
+              firstName: Иван
+              lastName: Иванов
+              phone: "+79161234567"
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                userId: 550e8400-e29b-41d4-a716-446655440001
+                email: user@example.com
+                firstName: Иван
+                lastName: Иванов
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                refreshToken: dGhpcyBpcyByZWZyZXNoIHRva2Vu...
+                expiresIn: 3600
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Пользователь с таким email уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Вход в систему
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: user@example.com
+              password: SecurePass123
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                userId: 550e8400-e29b-41d4-a716-446655440001
+                email: user@example.com
+                firstName: Иван
+                lastName: Иванов
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                refreshToken: dGhpcyBpcyByZWZyZXNoIHRva2Vu...
+                expiresIn: 3600
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Учётная запись заблокирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /flights/search:
+    get:
+      tags: [flights]
+      summary: Поиск доступных рейсов
+      operationId: searchFlights
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          description: IATA-код города/аэропорта вылета
+          schema:
+            type: string
+            example: MOW
+        - name: destination
+          in: query
+          required: true
+          description: IATA-код города/аэропорта назначения
+          schema:
+            type: string
+            example: LED
+        - name: departureDate
+          in: query
+          required: true
+          description: Дата вылета (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2025-06-15"
+        - name: returnDate
+          in: query
+          required: false
+          description: Дата обратного вылета (если требуется)
+          schema:
+            type: string
+            format: date
+            example: "2025-06-22"
+        - name: adults
+          in: query
+          required: true
+          description: Количество взрослых (≥1)
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: children
+          in: query
+          required: false
+          description: Количество детей (2-12 лет)
+          schema:
+            type: integer
+            minimum: 0
+            example: 0
+        - name: infants
+          in: query
+          required: false
+          description: Количество младенцев (до 2 лет, без места)
+          schema:
+            type: integer
+            minimum: 0
+            example: 0
+        - name: cabinClass
+          in: query
+          required: false
+          description: Класс обслуживания
+          schema:
+            type: string
+            enum: [ECONOMY, BUSINESS, FIRST]
+            default: ECONOMY
+            example: ECONOMY
+        - name: currency
+          in: query
+          required: false
+          description: Валюта отображения цен
+          schema:
+            type: string
+            enum: [RUB, USD]
+            default: RUB
+            example: RUB
+      responses:
+        '200':
+          description: Успешный поиск
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightSearchResponse'
+              example:
+                searchId: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                flights:
+                  - flightId: 550e8400-e29b-41d4-a716-446655440000
+                    airline:
+                      code: SU
+                      name: Аэрофлот
+                    flightNumber: SU 0123
+                    departure:
+                      airport: SVO
+                      city: Москва
+                      time: "2025-06-15T08:00:00+03:00"
+                    arrival:
+                      airport: LED
+                      city: Санкт-Петербург
+                      time: "2025-06-15T09:30:00+03:00"
+                    duration: 90
+                    stops: 0
+                    price:
+                      total: 4500.00
+                      currency: RUB
+                      fareBasis: YFLT
+                      baggage: 1x23kg
+                      handLuggage: 1x10kg
+                meta:
+                  count: 1
+                  currency: RUB
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис GDS временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /flights/{flightId}/details:
+    get:
+      tags: [flights]
+      summary: Получение детальной информации о рейсе
+      operationId: getFlightDetails
+      parameters:
+        - name: flightId
+          in: path
+          required: true
+          description: Идентификатор рейса (сегмента) из поиска
+          schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+        - name: currency
+          in: query
+          required: false
+          description: Валюта отображения цен
+          schema:
+            type: string
+            enum: [RUB, USD]
+            default: RUB
+            example: RUB
+      responses:
+        '200':
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightDetailsResponse'
+              example:
+                flightId: 550e8400-e29b-41d4-a716-446655440000
+                airline:
+                  code: SU
+                  name: Аэрофлот
+                flightNumber: SU 0123
+                segments:
+                  - departure:
+                      airport: SVO
+                      city: Москва
+                      time: "2025-06-15T08:00:00+03:00"
+                    arrival:
+                      airport: LED
+                      city: Санкт-Петербург
+                      time: "2025-06-15T09:30:00+03:00"
+                    aircraft: Boeing 737-800
+                    duration: 90
+                priceDetails:
+                  baseFare: 4000.00
+                  taxes: 500.00
+                  total: 4500.00
+                  currency: RUB
+                fareRules:
+                  refundable: false
+                  exchangeable: true
+                  baggage:
+                    included: 1x23kg
+                    extraOptions:
+                      - weight: 23
+                        price: 1500.00
+                seatsAvailable: 12
+        '404':
+          description: Рейс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Истекло время актуальности цены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings:
+    post:
+      tags: [bookings]
+      summary: Создание бронирования
+      operationId: createBooking
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Ключ идемпотентности для предотвращения повторной обработки запроса
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+            example:
+              flightId: 550e8400-e29b-41d4-a716-446655440000
+              passengersCount:
+                adults: 1
+                children: 0
+              currency: RUB
+      responses:
+        '201':
+          description: Бронирование создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+              example:
+                bookingId: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                bookingCode: ABC123
+                status: RESERVED
+                expiresAt: "2025-05-20T14:35:00+03:00"
+                totalPrice: 4500.00
+                currency: RUB
+                pnrCode: X3F8G2
+        '400':
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Места закончились за время обработки запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис GDS недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{bookingId}:
+    get:
+      tags: [bookings]
+      summary: Получение информации о бронировании
+      operationId: getBooking
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+      responses:
+        '200':
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetailsResponse'
+              example:
+                bookingId: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                bookingCode: ABC123
+                status: RESERVED
+                contactEmail: null
+                contactPhone: null
+                passengers: []
+                flights: []
+                services: []
+                totalPrice: 4500.00
+                currency: RUB
+                expiresAt: "2025-05-20T14:35:00+03:00"
+                createdAt: "2025-05-20T14:25:00+03:00"
+        '404':
+          description: Бронирование не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещён (бронирование принадлежит другому пользователю)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{bookingId}/passengers:
+    put:
+      tags: [bookings]
+      summary: Добавление данных пассажиров и контактной информации
+      operationId: addPassengers
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengersRequest'
+            example:
+              passengers:
+                - type: ADULT
+                  firstName: IVAN
+                  lastName: IVANOV
+                  birthDate: "1990-01-01"
+                  citizenship: RU
+                  document:
+                    type: INTERNATIONAL_PASSPORT
+                    number: "123456789"
+                    expiryDate: "2027-01-01"
+              contact:
+                email: user@example.com
+                phone: "+79161234567"
+      responses:
+        '200':
+          description: Данные пассажиров успешно сохранены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengersResponse'
+              example:
+                bookingId: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                passengers:
+                  - passengerId: a1b2c3...
+                    type: ADULT
+                    firstName: IVAN
+                    lastName: IVANOV
+                contact:
+                  email: user@example.com
+                  phone: "+79161234567"
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Бронирование не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Время бронирования истекло
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{bookingId}/services:
+    get:
+      tags: [services]
+      summary: Получение списка доступных дополнительных услуг
+      operationId: getAvailableServices
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+      responses:
+        '200':
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableServicesResponse'
+              example:
+                availableServices:
+                  - code: SEAT_SELECTION
+                    name: Выбор места
+                    pricing:
+                      type: FIXED
+                      amount: 500.00
+                      currency: RUB
+                seatMap:
+                  segmentId: 550e8400...
+                  rows: 30
+                  columns: ["A", "B", "C"]
+                  occupiedSeats: ["12A"]
+                  availableSeats: ["12C", "14A"]
+        '404':
+          description: Бронирование не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [services]
+      summary: Добавление дополнительных услуг к бронированию
+      operationId: addServices
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Ключ идемпотентности для предотвращения повторной обработки запроса
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddServicesRequest'
+            example:
+              services:
+                - passengerId: a1b2c3...
+                  serviceCode: SEAT_SELECTION
+                  details:
+                    segmentId: 550e8400...
+                    seatNumber: "12A"
+                - passengerId: a1b2c3...
+                  serviceCode: EXTRA_BAGGAGE
+                  details:
+                    weight: 23
+                    quantity: 1
+      responses:
+        '201':
+          description: Услуги успешно добавлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddServicesResponse'
+              example:
+                bookingId: 6ba7b810...
+                addedServices:
+                  - serviceId: e4f5g6...
+                    passengerId: a1b2c3...
+                    serviceType: SEAT_SELECTION
+                    price: 500.00
+                    currency: RUB
+                totalPriceUpdated: 5000.00
+        '400':
+          description: Неверные параметры услуги
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Бронирование или пассажир не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Время бронирования истекло
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{bookingId}/payment:
+    post:
+      tags: [payments]
+      summary: Инициализация платежа
+      operationId: initializePayment
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Ключ идемпотентности для предотвращения повторной обработки запроса
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInitRequest'
+            example:
+              paymentMethod: CARD
+              returnUrl: https://app.example.com/payment/callback
+      responses:
+        '200':
+          description: Платёжная сессия создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitResponse'
+              example:
+                paymentId: p1q2r3...
+                status: PENDING
+                amount: 5000.00
+                currency: RUB
+                paymentUrl: https://payment-gateway.example.com/pay?token=xyz
+                expiresAt: "2025-05-20T15:00:00+03:00"
+        '400':
+          description: Бронирование уже оплачено или отменено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Бронирование не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Платёжный шлюз недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{bookingId}/confirm:
+    post:
+      tags: [payments]
+      summary: Подтверждение оплаты и выписка билетов
+      operationId: confirmPayment
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Ключ идемпотентности для предотвращения повторной обработки запроса
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPaymentRequest'
+            example:
+              paymentId: p1q2r3...
+              gatewayPaymentId: ch_123456789
+      responses:
+        '200':
+          description: Оплата подтверждена, билеты выписаны
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmPaymentResponse'
+              example:
+                bookingId: 6ba7b810...
+                status: PAID
+                tickets:
+                  - ticketId: t1u2v3...
+                    ticketNumber: "1234567890123"
+                    passengerName: IVAN IVANOV
+                    segment: SU 0123 MOW-LED
+                    status: ACTIVE
+                receiptUrl: /api/v1/bookings/6ba7b810.../tickets/pdf
+        '409':
+          description: Тайм-аут бронирования истёк, места сняты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Платёж не подтверждён или сумма не совпадает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '424':
+          description: Ошибка выписки билетов в GDS (инициирован возврат)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings/{bookingId}/tickets:
+    get:
+      tags: [bookings]
+      summary: Получение билетов (маршрут-квитанции)
+      operationId: getTickets
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          description: Идентификатор бронирования
+          schema:
+            type: string
+            format: uuid
+            example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        - name: format
+          in: query
+          required: false
+          description: Формат ответа (json или pdf). По умолчанию json.
+          schema:
+            type: string
+            enum: [json, pdf]
+            default: json
+      responses:
+        '200':
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketsResponse'
+              example:
+                bookingCode: ABC123
+                pnrCode: X3F8G2
+                tickets:
+                  - ticketNumber: "1234567890123"
+                    passenger:
+                      firstName: IVAN
+                      lastName: IVANOV
+                    flights:
+                      - flightNumber: SU 0123
+                        departure: "2025-06-15T08:00:00+03:00"
+                        arrival: "2025-06-15T09:30:00+03:00"
+                        seat: "12A"
+                    baggage: 1x23kg
+                    status: ACTIVE
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Бронирование не найдено или билеты ещё не выписаны
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tickets/{ticketId}/refund-options:
+    get:
+      tags: [refunds]
+      summary: Проверка возможности возврата билета
+      operationId: getRefundOptions
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          description: Идентификатор билета
+          schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Информация о возможности возврата получена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundOptionsResponse'
+              example:
+                ticketId: 550e8400-e29b-41d4-a716-446655440000
+                ticketNumber: "1234567890123"
+                passengerName: IVAN IVANOV
+                flightInfo: SU 0123 MOW-LED, 15.06.2025 08:00
+                status: ACTIVE
+                refundable: true
+                refundAmount: 3500.00
+                currency: RUB
+                penaltyAmount: 1000.00
+                refundDeadline: "2025-06-14T23:59:59+03:00"
+                refundPolicy: "Возврат возможен с удержанием 1000 RUB. Деньги поступят в течение 5-30 дней."
+        '404':
+          description: Билет не найден или не принадлежит пользователю
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tickets/{ticketId}/refund:
+    post:
+      tags: [refunds]
+      summary: Инициирование возврата билета
+      operationId: createRefund
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          description: Идентификатор билета для возврата
+          schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Ключ идемпотентности для предотвращения повторной обработки запроса
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Причина возврата (опционально)
+                  example: Изменение планов
+            example:
+              reason: Изменение планов
+      responses:
+        '202':
+          description: Запрос на возврат принят в обработку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResponse'
+              example:
+                refundId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                ticketId: 550e8400-e29b-41d4-a716-446655440000
+                status: INITIATED
+                refundAmount: 3500.00
+                currency: RUB
+                estimatedCompletionDate: "2025-06-25"
+                message: "Заявка на возврат принята. Средства будут возвращены на карту, с которой производилась оплата."
+        '400':
+          description: Возврат невозможен (билет уже использован/отменён)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещён или тариф не предусматривает возврат
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Билет не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Заявка на возврат уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный при регистрации или входе.
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код ошибки
+        message:
+          type: string
+          description: Человекочитаемое сообщение
+        details:
+          type: object
+          additionalProperties: true
+          description: Дополнительные детали ошибки
+      required: [code, message]
+
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          pattern: '^(?=.*[A-Za-z])(?=.*\d).+$'
+          description: Пароль должен содержать минимум 8 символов, включая буквы и цифры
+          example: SecurePass123
+        firstName:
+          type: string
+          maxLength: 100
+          example: Иван
+        lastName:
+          type: string
+          maxLength: 100
+          example: Иванов
+        phone:
+          type: string
+          pattern: '^\+?[0-9\-\s]+$'
+          maxLength: 20
+          example: "+79161234567"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          example: SecurePass123
+
+    AuthResponse:
+      type: object
+      required: [userId, email, firstName, lastName, accessToken, refreshToken, expiresIn]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440001
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        firstName:
+          type: string
+          example: Иван
+        lastName:
+          type: string
+          example: Иванов
+        accessToken:
+          type: string
+          description: JWT токен доступа
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: Refresh токен для продления сессии
+          example: dGhpcyBpcyByZWZyZXNoIHRva2Vu...
+        expiresIn:
+          type: integer
+          description: Время жизни access токена в секундах
+          example: 3600
+
+    FlightSearchResponse:
+      type: object
+      required: [searchId, flights, meta]
+      properties:
+        searchId:
+          type: string
+          format: uuid
+          description: Идентификатор сессии поиска
+          example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        flights:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlightSummary'
+        meta:
+          $ref: '#/components/schemas/SearchMeta'
+
+    FlightSummary:
+      type: object
+      required: [flightId, airline, flightNumber, departure, arrival, duration, stops, price]
+      properties:
+        flightId:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор рейса (сегмента)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        airline:
+          $ref: '#/components/schemas/Airline'
+        flightNumber:
+          type: string
+          example: SU 0123
+        departure:
+          $ref: '#/components/schemas/FlightPoint'
+        arrival:
+          $ref: '#/components/schemas/FlightPoint'
+        duration:
+          type: integer
+          description: Продолжительность перелёта в минутах
+          example: 90
+        stops:
+          type: integer
+          description: Количество пересадок
+          example: 0
+        price:
+          $ref: '#/components/schemas/PriceSummary'
+
+    Airline:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          maxLength: 2
+          description: IATA-код авиакомпании
+          example: SU
+        name:
+          type: string
+          maxLength: 255
+          example: Аэрофлот
+
+    FlightPoint:
+      type: object
+      required: [airport, city, time]
+      properties:
+        airport:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: IATA-код аэропорта
+          example: SVO
+        city:
+          type: string
+          example: Москва
+        time:
+          type: string
+          format: date-time
+          description: Время вылета/прилёта в ISO 8601
+          example: "2025-06-15T08:00:00+03:00"
+
+    PriceSummary:
+      type: object
+      required: [total, currency, fareBasis, baggage, handLuggage]
+      properties:
+        total:
+          type: number
+          format: double
+          minimum: 0
+          example: 4500.00
+        currency:
+          type: string
+          enum: [RUB, USD]
+          example: RUB
+        fareBasis:
+          type: string
+          description: Код тарифа
+          example: YFLT
+        baggage:
+          type: string
+          description: Включённая норма багажа
+          example: 1x23kg
+        handLuggage:
+          type: string
+          description: Включённая норма ручной клади
+          example: 1x10kg
+
+    SearchMeta:
+      type: object
+      required: [count, currency]
+      properties:
+        count:
+          type: integer
+          description: Общее количество найденных вариантов
+          example: 15
+        currency:
+          type: string
+          enum: [RUB, USD]
+          example: RUB
+
+    FlightDetailsResponse:
+      type: object
+      required: [flightId, airline, flightNumber, segments, priceDetails, fareRules, seatsAvailable]
+      properties:
+        flightId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        airline:
+          $ref: '#/components/schemas/Airline'
+        flightNumber:
+          type: string
+          example: SU 0123
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlightSegmentDetail'
+        priceDetails:
+          $ref: '#/components/schemas/PriceDetails'
+        fareRules:
+          $ref: '#/components/schemas/FareRules'
+        seatsAvailable:
+          type: integer
+          description: Количество свободных мест по данному тарифу
+          example: 12
+
+    FlightSegmentDetail:
+      type: object
+      required: [departure, arrival, aircraft, duration]
+      properties:
+        departure:
+          $ref: '#/components/schemas/FlightPoint'
+        arrival:
+          $ref: '#/components/schemas/FlightPoint'
+        aircraft:
+          type: string
+          example: Boeing 737-800
+        duration:
+          type: integer
+          minimum: 0
+          example: 90
+
+    PriceDetails:
+      type: object
+      required: [baseFare, taxes, total, currency]
+      properties:
+        baseFare:
+          type: number
+          format: double
+          minimum: 0
+          example: 4000.00
+        taxes:
+          type: number
+          format: double
+          minimum: 0
+          example: 500.00
+        total:
+          type: number
+          format: double
+          minimum: 0
+          example: 4500.00
+        currency:
+          type: string
+          enum: [RUB, USD]
+          example: RUB
+
+    FareRules:
+      type: object
+      required: [refundable, exchangeable, baggage]
+      properties:
+        refundable:
+          type: boolean
+          example: false
+        exchangeable:
+          type: boolean
+          example: true
+        baggage:
+          type: object
+          required: [included]
+          properties:
+            included:
+              type: string
+              example: 1x23kg
+            extraOptions:
+              type: array
+              items:
+                $ref: '#/components/schemas/BaggageExtraOption'
+
+    BaggageExtraOption:
+      type: object
+      required: [weight, price]
+      properties:
+        weight:
+          type: integer
+          minimum: 1
+          example: 23
+        price:
+          type: number
+          format: double
+          minimum: 0
+          example: 1500.00
+
+    CreateBookingRequest:
+      type: object
+      required: [flightId, passengersCount]
+      properties:
+        flightId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        passengersCount:
+          type: object
+          required: [adults]
+          properties:
+            adults:
+              type: integer
+              minimum: 1
+              example: 1
+            children:
+              type: integer
+              minimum: 0
+              example: 0
+            infants:
+              type: integer
+              minimum: 0
+              example: 0
+        currency:
+          type: string
+          enum: [RUB, USD]
+          default: RUB
+
+    BookingResponse:
+      type: object
+      required: [bookingId, bookingCode, status, expiresAt, totalPrice, currency]
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+          example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        bookingCode:
+          type: string
+          description: Внутренний код бронирования (для клиента)
+          example: ABC123
+        status:
+          type: string
+          enum: [RESERVED, PAID, CANCELLED]
+          example: RESERVED
+        expiresAt:
+          type: string
+          format: date-time
+          description: Время истечения тайм-аута брони
+          example: "2025-05-20T14:35:00+03:00"
+        totalPrice:
+          type: number
+          format: double
+          minimum: 0
+          example: 4500.00
+        currency:
+          type: string
+          enum: [RUB, USD]
+          example: RUB
+        pnrCode:
+          type: string
+          description: Код бронирования (PNR) от GDS
+          example: X3F8G2
+
+    BookingDetailsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BookingResponse'
+        - type: object
+          properties:
+            contactEmail:
+              type: string
+              format: email
+              nullable: true
+            contactPhone:
+              type: string
+              nullable: true
+            passengers:
+              type: array
+              items:
+                $ref: '#/components/schemas/PassengerInfo'
+            flights:
+              type: array
+              items:
+                $ref: '#/components/schemas/FlightSummary'
+            services:
+              type: array
+              items:
+                $ref: '#/components/schemas/ServiceInfo'
+            createdAt:
+              type: string
+              format: date-time
+              example: "2025-05-20T14:25:00+03:00"
+
+    PassengerInfo:
+      type: object
+      properties:
+        passengerId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [ADULT, CHILD, INFANT]
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        citizenship:
+          type: string
+        documentType:
+          type: string
+        documentNumber:
+          type: string
+
+    ServiceInfo:
+      type: object
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        serviceType:
+          type: string
+        price:
+          type: number
+          format: double
+
+    PassengersRequest:
+      type: object
+      required: [passengers, contact]
+      properties:
+        passengers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassengerInput'
+        contact:
+          type: object
+          required: [email]
+          properties:
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              pattern: '^\+?[0-9\-\s]+$'
+
+    PassengerInput:
+      type: object
+      required: [type, firstName, lastName, birthDate, citizenship, document]
+      properties:
+        type:
+          type: string
+          enum: [ADULT, CHILD, INFANT]
+          example: ADULT
+        firstName:
+          type: string
+          maxLength: 100
+          example: IVAN
+        lastName:
+          type: string
+          maxLength: 100
+          example: IVANOV
+        birthDate:
+          type: string
+          format: date
+          example: "1990-01-01"
+        citizenship:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: Код страны (ISO 3166-1 alpha-2)
+          example: RU
+        document:
+          type: object
+          required: [type, number]
+          properties:
+            type:
+              type: string
+              enum: [INTERNATIONAL_PASSPORT, PASSPORT_RF, BIRTH_CERTIFICATE]
+              example: INTERNATIONAL_PASSPORT
+            number:
+              type: string
+              pattern: '^[A-Z0-9]+$'
+              example: "123456789"
+            expiryDate:
+              type: string
+              format: date
+              example: "2027-01-01"
+
+    PassengersResponse:
+      type: object
+      required: [bookingId, passengers, contact]
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+        passengers:
+          type: array
+          items:
+            type: object
+            properties:
+              passengerId:
+                type: string
+                format: uuid
+              type:
+                type: string
+              firstName:
+                type: string
+              lastName:
+                type: string
+        contact:
+          type: object
+          properties:
+            email:
+              type: string
+            phone:
+              type: string
+
+    AvailableServicesResponse:
+      type: object
+      required: [availableServices]
+      properties:
+        availableServices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableService'
+        seatMap:
+          $ref: '#/components/schemas/SeatMap'
+
+    AvailableService:
+      type: object
+      required: [code, name, pricing]
+      properties:
+        code:
+          type: string
+          enum: [SEAT_SELECTION, EXTRA_BAGGAGE, INSURANCE]
+          example: SEAT_SELECTION
+        name:
+          type: string
+          example: Выбор места
+        description:
+          type: string
+        pricing:
+          type: object
+          required: [type, amount, currency]
+          properties:
+            type:
+              type: string
+              enum: [FIXED, PER_KG]
+              example: FIXED
+            amount:
+              type: number
+              format: double
+              example: 500.00
+            currency:
+              type: string
+              example: RUB
+        applicableTo:
+          type: array
+          items:
+            type: string
+            enum: [ADULT, CHILD, INFANT]
+
+    SeatMap:
+      type: object
+      properties:
+        segmentId:
+          type: string
+          format: uuid
+        rows:
+          type: integer
+        columns:
+          type: array
+          items:
+            type: string
+        occupiedSeats:
+          type: array
+          items:
+            type: string
+        availableSeats:
+          type: array
+          items:
+            type: string
+
+    AddServicesRequest:
+      type: object
+      required: [services]
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceAddItem'
+
+    ServiceAddItem:
+      type: object
+      required: [passengerId, serviceCode]
+      properties:
+        passengerId:
+          type: string
+          format: uuid
+        serviceCode:
+          type: string
+          enum: [SEAT_SELECTION, EXTRA_BAGGAGE, INSURANCE]
+        details:
+          type: object
+          additionalProperties: true
+          description: Дополнительные параметры (номер места, вес багажа и т.п.)
+
+    AddServicesResponse:
+      type: object
+      required: [bookingId, addedServices, totalPriceUpdated]
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+        addedServices:
+          type: array
+          items:
+            type: object
+            properties:
+              serviceId:
+                type: string
+                format: uuid
+              passengerId:
+                type: string
+                format: uuid
+              serviceType:
+                type: string
+              price:
+                type: number
+                format: double
+              currency:
+                type: string
+        totalPriceUpdated:
+          type: number
+          format: double
+
+    PaymentInitRequest:
+      type: object
+      required: [paymentMethod, returnUrl]
+      properties:
+        paymentMethod:
+          type: string
+          enum: [CARD]
+          example: CARD
+        returnUrl:
+          type: string
+          format: uri
+          example: https://app.example.com/payment/callback
+
+    PaymentInitResponse:
+      type: object
+      required: [paymentId, status, amount, currency, paymentUrl, expiresAt]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, SUCCEEDED, FAILED]
+          example: PENDING
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          enum: [RUB, USD]
+        paymentUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+
+    ConfirmPaymentRequest:
+      type: object
+      required: [paymentId, gatewayPaymentId]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        gatewayPaymentId:
+          type: string
+          description: Идентификатор транзакции от платёжного шлюза
+          example: ch_123456789
+
+    ConfirmPaymentResponse:
+      type: object
+      required: [bookingId, status, tickets, receiptUrl]
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PAID]
+        tickets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketBrief'
+        receiptUrl:
+          type: string
+          format: uri
+          description: Ссылка на маршрут-квитанцию (PDF)
+
+    TicketBrief:
+      type: object
+      properties:
+        ticketId:
+          type: string
+          format: uuid
+        ticketNumber:
+          type: string
+        passengerName:
+          type: string
+        segment:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, REFUNDED, EXCHANGED]
+
+    TicketsResponse:
+      type: object
+      required: [bookingCode, pnrCode, tickets]
+      properties:
+        bookingCode:
+          type: string
+        pnrCode:
+          type: string
+        tickets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketDetail'
+
+    TicketDetail:
+      type: object
+      required: [ticketNumber, passenger, flights, baggage, status]
+      properties:
+        ticketNumber:
+          type: string
+        passenger:
+          type: object
+          properties:
+            firstName:
+              type: string
+            lastName:
+              type: string
+        flights:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketFlightSegment'
+        baggage:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, REFUNDED, EXCHANGED]
+
+    TicketFlightSegment:
+      type: object
+      properties:
+        flightNumber:
+          type: string
+        departure:
+          type: string
+          format: date-time
+        arrival:
+          type: string
+          format: date-time
+        seat:
+          type: string
+
+    RefundOptionsResponse:
+      type: object
+      required:
+        - ticketId
+        - ticketNumber
+        - passengerName
+        - flightInfo
+        - status
+        - refundable
+      properties:
+        ticketId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        ticketNumber:
+          type: string
+          example: "1234567890123"
+        passengerName:
+          type: string
+          example: IVAN IVANOV
+        flightInfo:
+          type: string
+          description: Краткая информация о рейсе
+          example: SU 0123 MOW-LED, 15.06.2025 08:00
+        status:
+          type: string
+          enum: [ACTIVE, USED, REFUNDED, EXCHANGED]
+          example: ACTIVE
+        refundable:
+          type: boolean
+          description: Возможен ли возврат по тарифу
+          example: true
+        refundAmount:
+          type: number
+          format: double
+          description: Расчётная сумма возврата
+          example: 3500.00
+        currency:
+          type: string
+          enum: [RUB, USD]
+          example: RUB
+        penaltyAmount:
+          type: number
+          format: double
+          description: Штраф за возврат
+          example: 1000.00
+        refundDeadline:
+          type: string
+          format: date-time
+          description: Крайний срок подачи заявки на возврат
+          example: "2025-06-14T23:59:59+03:00"
+        refundPolicy:
+          type: string
+          description: Текстовое описание правил возврата
+          example: "Возврат возможен с удержанием 1000 RUB. Деньги поступят в течение 5-30 дней."
+
+    RefundResponse:
+      type: object
+      required:
+        - refundId
+        - ticketId
+        - status
+        - refundAmount
+        - currency
+        - message
+      properties:
+        refundId:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор операции возврата
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        ticketId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          enum: [INITIATED, PROCESSING, COMPLETED, FAILED]
+          description: Статус возврата
+          example: INITIATED
+        refundAmount:
+          type: number
+          format: double
+          example: 3500.00
+        currency:
+          type: string
+          enum: [RUB, USD]
+          example: RUB
+        estimatedCompletionDate:
+          type: string
+          format: date
+          description: Ожидаемая дата зачисления средств
+          example: "2025-06-25"
+        message:
+          type: string
+          description: Информационное сообщение
+          example: "Заявка на возврат принята. Средства будут возвращены на карту, с которой производилась оплата."
